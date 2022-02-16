@@ -345,6 +345,7 @@ async def test_wait_closed(pool_creator, loop):
     await asyncio.gather(wait_closed(), do_release(c1), do_release(c2))
     assert ['release', 'release', 'wait_closed'] == ops
     assert 0 == pool.freesize
+    assert pool.closed
 
 
 @pytest.mark.run_loop
@@ -534,6 +535,24 @@ async def test_pool_drops_connection_with_exception(pool_creator, loop):
 
     connection, = pool._free
     connection._writer._protocol.connection_lost(IOError())
+
+    async with pool.acquire() as conn:
+        cur = await conn.cursor()
+        await cur.execute('SELECT 1;')
+
+
+@pytest.mark.run_loop
+async def test_pool_maxsize_unlimited(pool_creator, loop):
+    pool = await pool_creator(minsize=0, maxsize=0)
+
+    async with pool.acquire() as conn:
+        cur = await conn.cursor()
+        await cur.execute('SELECT 1;')
+
+
+@pytest.mark.run_loop
+async def test_pool_maxsize_unlimited_minsize_1(pool_creator, loop):
+    pool = await pool_creator(minsize=1, maxsize=0)
 
     async with pool.acquire() as conn:
         cur = await conn.cursor()
